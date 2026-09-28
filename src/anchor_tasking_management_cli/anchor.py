@@ -5,7 +5,7 @@ import readchar
 import threading
 from typing import Optional
 from rich.prompt import Prompt, IntPrompt, Confirm
-from . import session
+from . import session, qeue
 
 app = typer.Typer()
 SERVER_URL = "http://localhost:8000"
@@ -13,6 +13,23 @@ SERVER_URL = "http://localhost:8000"
 def session_exists() -> bool:
       session_data = session.load_session()
       return isinstance(session_data, dict) and "acces_token" in session_data
+
+@app.command("sync")
+def sync(): 
+	list= qeue.load_qeue()
+	if not list:
+		typer.echo("Nothing to sync")
+		return 
+	
+	remaining = []
+	for i in list:
+		try:
+			response = requests.request(method=i["method"], url=SERVER_URL+i["endpoint"], json=i["payload"], headers={"Authorization": f"Bearer {session.load_session().get("acces_token")}"})
+			typer.echo(response.json())
+		except requests.exceptions.ConnectionError:
+			remaining.append(i)
+	qeue.save_qeue(remaining)
+	typer.echo(f"{len(list) - len(remaining)} changes out of {len(list)} synchronized.")
 
 @app.command("signup")
 def signup():
@@ -65,16 +82,17 @@ def add(name:str):
 			description = Prompt.ask("Description", default=None)
 			deadline = Prompt.ask("Deadline (YYYY-MM-DD)", default=None)
 			priority = IntPrompt.ask("Priority", default=1)
-			response = requests.post(SERVER_URL + "/add", json={
+			payload = {
 				"name":name.title(),
 				"description":description,
 				"deadline":deadline,
 				"priority":priority
-			},
-			headers={"Authorization": f"Bearer {session.load_session().get("acces_token")}"})
+			}
+			response = requests.post(SERVER_URL + "/add", json=payload, headers={"Authorization": f"Bearer {session.load_session().get("acces_token")}"})
 			typer.echo(response.json())
 		except requests.exceptions.ConnectionError:
-			typer.echo(f"Couldn't establish connection with server")
+			typer.echo(f"Couldn't establish connection with server -> going to qeue (run anchor sync to execute commands in qeue)")
+			qeue.enqeue(method="POST", endpoint="/add", payload=payload)
 	else:
 		typer.echo("\n\n[!] Run anchor signup/login to complete your authentication before using the system")
 
@@ -152,7 +170,8 @@ def delete(task_name):
 			response = requests.post(SERVER_URL+"/del", json={"task_name":task_name}, headers={"Authorization": f"Bearer {session.load_session().get("acces_token")}"})
 			typer.echo(response.json())
 		except requests.exceptions.ConnectionError:
-			typer.echo("Couldn't establish connection with server")
+			typer.echo("Couldn't establish connection with server -> going to qeue (run anchor sync to execute commands in qeue)")
+			qeue.enqeue(method="POST", endpoint="/del", payload={"task_name":task_name})
 		except requests.exceptions.HTTPError as e:
 			typer.echo(f"Server error: \n{e}")
 		except Exception as e:
@@ -167,7 +186,8 @@ def check_task(task, uncheck:Optional[bool] = False):
 			response = requests.post(SERVER_URL+"/check", json={"task_id":str(task),"uncheck":uncheck}, headers={"Authorization": f"Bearer {session.load_session().get("acces_token")}"})
 			typer.echo(response.json())
 		except requests.exceptions.ConnectionError:
-			typer.echo("Couldn't establish connection with server")
+			typer.echo("Couldn't establish connection with server -> going to qeue (run anchor sync to execute commands in qeue)")
+			qeue.enqeue(method="POST", endpoint="/check", payload={"task_id":str(task),"uncheck":uncheck})
 		except requests.exceptions.HTTPError as e:
 			typer.echo(f"Server error: \n{e}")
 		except Exception as e:
@@ -226,18 +246,19 @@ def edit_task(task_name):
 				priority = IntPrompt.ask("Priority", default=current.get("priority", 1))
 				typer.echo(f"\nSummary:\n  Description: {description}\n  Deadline: {deadline}\n  Priority: {priority}")
 				if Confirm.ask("¿Confirm changes?"):
-					response = requests.post(SERVER_URL+"/edit", json={
+					payload = {
 						"task_name":task_name,
 						"priority":priority,
 						"deadline":deadline,
 						"description":description
-					},
-					headers={"Authorization": f"Bearer {session.load_session().get("acces_token")}"})
+					}
+					response = requests.post(SERVER_URL+"/edit", json=payload, headers={"Authorization": f"Bearer {session.load_session().get("acces_token")}"})
 					typer.echo(response.json())
 			else:
 				typer.echo("No task was found with that name")
 		except requests.exceptions.ConnectionError:
-			typer.echo("Couldn't establish connection with server")
+			typer.echo("Couldn't establish connection with server -> going to qeue (run anchor sync to execute commands in qeue)")
+			qeue.enqeue(method="POST", endpoint="/edit", payload=payload)
 		except requests.exceptions.HTTPError as e:
 			typer.echo(f"Server error: \n{e}")
 		except Exception as e:

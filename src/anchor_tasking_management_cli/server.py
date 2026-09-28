@@ -136,3 +136,7 @@ def edit_task(task_param:EditTask, current_user: dict = Depends(security.get_cur
                        priority=task_param.priority,
                        user_id=current_user["id"])
     return "Task eddited with succes"
+
+@app.get("/users")
+def users_list():
+    return database.list_users()

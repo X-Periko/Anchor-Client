@@ -67,6 +67,11 @@ def get_user_by_id(user_id):
     with connect() as conn:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         return dict(row) if row else None
+    
+def list_users():
+    with connect() as conn:
+        rows = conn.execute("SELECT * FROM tasks ").fetchall()
+        return [dict(r) for r in rows]
 
 #--------------------------TASKS DB--------------------------
 
