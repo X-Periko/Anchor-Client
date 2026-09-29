@@ -44,15 +44,18 @@ def signup():
 		"mail": mail,
 		"password": password
 	}
-	response = requests.post(SERVER_URL + "/signup", json=USR_DATA)
-	response = requests.post(SERVER_URL + "/login", json={
-		"name":nick,
-		"password":password
-	})
-	if not response.ok:
-		typer.echo(response.json().get("detail"))
-	session.save_session(data=response.json())
-	typer.echo(response.json())
+	try:
+		response = requests.post(SERVER_URL + "/signup", json=USR_DATA)
+		response = requests.post(SERVER_URL + "/login", json={
+			"name":nick,
+			"password":password
+		})
+		if not response.ok:
+			typer.echo(response.json().get("detail"))
+		session.save_session(data=response.json())
+		typer.echo("Account created and logged in")
+	except:
+		typer.echo("[!] Server connection error")
 
 @app.command("login")
 def	login():
@@ -97,7 +100,11 @@ def add(name:str):
 		typer.echo("\n\n[!] Run anchor signup/login to complete your authentication before using the system")
 
 @app.command("list")
-def list_tasks(simple:bool = False, sort:Optional[str] = False, pending:Optional[bool] = False, done:Optional[bool] = False, dynamic:Optional[bool] = False):
+def list_tasks(simple:bool = typer.Option(False, "--simple", help="Simple listing with names"),
+            sort:Optional[str] = typer.Option(False, "--sort", "-s", help="Sorting options (priority)"),
+			pending:Optional[bool] = typer.Option(False, "--pending", help="Filter pending tasks"),
+			done:Optional[bool] = typer.Option(False, "--done", help="Filter done tasks"),
+			dynamic:Optional[bool] = typer.Option(False, "-d","--dynamic", help="Dynamic listing")):
 	if session_exists():
 		def escuchar_salida(stop_event: threading.Event):
 			while not stop_event.is_set():

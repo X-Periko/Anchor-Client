@@ -19,7 +19,6 @@ dependencies = [
 
 [project.scripts]
 anchor = "anchor_tasking_management_cli.anchor:app"
-admin = "anchor_tasking_management_cli.admin:app"
 
 [build-system]
 requires = ["uv_build>=0.12.6,<0.13.0"]
